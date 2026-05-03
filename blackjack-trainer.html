@@ -239,9 +239,84 @@
     .reset-btn:active { background: rgba(183,28,28,0.5); }
 
     .hidden { display: none !important; }
+
+    /* ── PIN overlay ── */
+    #pinOverlay {
+      position: fixed; inset: 0; z-index: 999;
+      background: radial-gradient(ellipse at top, #2e7d32 0%, #1b5e20 55%, #0a2a0d 100%);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 40px 24px;
+    }
+    #pinOverlay h1 {
+      font-size: 22px; font-weight: 900; letter-spacing: 4px;
+      text-transform: uppercase; color: #ffd700;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+      margin-bottom: 6px;
+    }
+    #pinOverlay p {
+      font-size: 13px; opacity: 0.65; letter-spacing: 1px; margin-bottom: 32px;
+    }
+    .pin-dots {
+      display: flex; gap: 16px; margin-bottom: 12px;
+    }
+    .pin-dot {
+      width: 18px; height: 18px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.5);
+      background: transparent;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .pin-dot.filled { background: #ffd700; border-color: #ffd700; }
+    .pin-dot.error  { background: #ef5350; border-color: #ef5350; }
+    .pin-error {
+      font-size: 12px; color: #ef9a9a; font-weight: 700;
+      letter-spacing: 1px; margin-bottom: 12px; height: 18px;
+    }
+    .numpad {
+      display: grid; grid-template-columns: repeat(3, 72px);
+      gap: 10px; margin-top: 20px;
+    }
+    .numpad-btn {
+      height: 64px; background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 14px; color: #fff;
+      font-size: 22px; font-weight: 600;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+      transition: background 0.1s;
+    }
+    .numpad-btn:active { background: rgba(255,255,255,0.25); }
+    .numpad-btn.del    { font-size: 18px; }
+    .numpad-btn.empty  { background: none; border: none; cursor: default; }
   </style>
 </head>
 <body>
+
+<!-- PIN screen -->
+<div id="pinOverlay">
+  <h1>Blackjack Trainer</h1>
+  <p>Enter PIN to continue</p>
+  <div class="pin-dots">
+    <div class="pin-dot" id="pd0"></div>
+    <div class="pin-dot" id="pd1"></div>
+    <div class="pin-dot" id="pd2"></div>
+    <div class="pin-dot" id="pd3"></div>
+  </div>
+  <div class="pin-error" id="pinError"></div>
+  <div class="numpad">
+    <button class="numpad-btn" onclick="pinKey('1')">1</button>
+    <button class="numpad-btn" onclick="pinKey('2')">2</button>
+    <button class="numpad-btn" onclick="pinKey('3')">3</button>
+    <button class="numpad-btn" onclick="pinKey('4')">4</button>
+    <button class="numpad-btn" onclick="pinKey('5')">5</button>
+    <button class="numpad-btn" onclick="pinKey('6')">6</button>
+    <button class="numpad-btn" onclick="pinKey('7')">7</button>
+    <button class="numpad-btn" onclick="pinKey('8')">8</button>
+    <button class="numpad-btn" onclick="pinKey('9')">9</button>
+    <button class="numpad-btn empty"></button>
+    <button class="numpad-btn" onclick="pinKey('0')">0</button>
+    <button class="numpad-btn del" onclick="pinDel()">&#9003;</button>
+  </div>
+</div>
 
 <header>
   <h1>Blackjack Trainer</h1>
@@ -881,6 +956,55 @@ function switchTab(name) {
   if (name==='stats') renderStatsGrid();
   if (name==='chart') renderStrategyChart();
 }
+
+// ── PIN ───────────────────────────────────────────────────────────
+
+const PIN = '2121'; // change this to whatever code you want
+let pinEntry = '';
+
+function pinKey(digit) {
+  if (pinEntry.length >= 4) return;
+  pinEntry += digit;
+  updatePinDots();
+  if (pinEntry.length === 4) setTimeout(checkPin, 120);
+}
+
+function pinDel() {
+  pinEntry = pinEntry.slice(0, -1);
+  updatePinDots();
+  document.getElementById('pinError').textContent = '';
+  document.querySelectorAll('.pin-dot').forEach(d => d.classList.remove('error'));
+}
+
+function updatePinDots() {
+  for (let i = 0; i < 4; i++) {
+    document.getElementById('pd'+i).classList.toggle('filled', i < pinEntry.length);
+  }
+}
+
+function checkPin() {
+  if (pinEntry === PIN) {
+    try { sessionStorage.setItem('bjAuth','1'); } catch(e) {}
+    document.getElementById('pinOverlay').style.display = 'none';
+  } else {
+    document.querySelectorAll('.pin-dot').forEach(d => {
+      d.classList.remove('filled'); d.classList.add('error');
+    });
+    document.getElementById('pinError').textContent = 'Incorrect PIN';
+    setTimeout(() => {
+      document.querySelectorAll('.pin-dot').forEach(d => d.classList.remove('error'));
+      document.getElementById('pinError').textContent = '';
+      pinEntry = '';
+      updatePinDots();
+    }, 800);
+  }
+}
+
+// Skip PIN if already authenticated this session
+try {
+  if (sessionStorage.getItem('bjAuth') === '1')
+    document.getElementById('pinOverlay').style.display = 'none';
+} catch(e) {}
 
 // ── Boot ──────────────────────────────────────────────────────────
 
