@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Blackjack Trainer">
+  <title>Blackjack Trainer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: radial-gradient(ellipse at top, #2e7d32 0%, #1b5e20 55%, #0a2a0d 100%);
+      min-height: 100dvh;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', sans-serif;
+      color: #fff;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 10px 0 24px;
+    }
+
+    /* ── Header ── */
+    header { text-align: center; margin-bottom: 8px; padding: 0 16px; }
+    header h1 {
+      font-size: 19px; font-weight: 900; letter-spacing: 4px;
+      text-transform: uppercase; color: #ffd700;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+    }
+    header p { font-size: 10px; opacity: 0.6; letter-spacing: 1px; margin-top: 1px; }
+
+    /* ── Score bar ── */
+    .score-bar {
+      display: flex; gap: 12px; align-items: center;
+      background: rgba(0,0,0,0.38); border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 99px; padding: 5px 16px;
+      font-size: 12px; font-weight: 700; margin-bottom: 8px;
+    }
+    .score-bar .streak { color: #ffd700; }
+    .score-bar .pct    { opacity: 0.65; }
+
+    /* ── Tab nav ── */
+    .tab-nav {
+      display: flex; width: 100%; max-width: 420px;
+      background: rgba(0,0,0,0.35);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .tab-btn {
+      flex: 1; padding: 10px 4px; background: none; border: none;
+      color: rgba(255,255,255,0.55); font-size: 12px; font-weight: 700;
+      letter-spacing: 1px; text-transform: uppercase;
+      cursor: pointer; border-bottom: 2px solid transparent;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tab-btn.active { color: #ffd700; border-bottom-color: #ffd700; }
+
+    /* ── Tab panes ── */
+    .tab-pane { display: none; width: 100%; max-width: 420px; flex-direction: column; padding: 10px 14px 0; }
+    .tab-pane.active { display: flex; }
+
+    /* ── Mode selector ── */
+    .mode-row {
+      display: flex; gap: 5px; margin-bottom: 8px;
+      background: rgba(0,0,0,0.25); border-radius: 10px; padding: 4px;
+    }
+    .mode-btn {
+      flex: 1; padding: 6px 2px; background: none; border: none; border-radius: 7px;
+      color: rgba(255,255,255,0.6); font-size: 10px; font-weight: 700;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    .mode-btn.active { background: rgba(255,215,0,0.2); color: #ffd700; }
+
+    /* ── Reinforce banner ── */
+    .reinforce-msg {
+      background: rgba(255,193,7,0.15); border: 1px solid rgba(255,193,7,0.4);
+      border-radius: 8px; padding: 5px 10px; font-size: 11px; font-weight: 700;
+      color: #ffd54f; text-align: center; margin-bottom: 7px;
+      letter-spacing: 0.3px;
+    }
+
+    /* ── Zone labels ── */
+    .zone-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 2.5px;
+      text-transform: uppercase; opacity: 0.55; margin-bottom: 5px;
+    }
+
+    /* ── Cards ── */
+    .cards-row { display: flex; gap: 8px; align-items: flex-start; min-height: 95px; margin-bottom: 5px; }
+
+    .card {
+      width: 64px; height: 92px; background: #fff;
+      border-radius: 7px;
+      box-shadow: 0 5px 14px rgba(0,0,0,0.55), 0 1px 3px rgba(0,0,0,0.3);
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: 4px 5px; flex-shrink: 0; position: relative; overflow: hidden;
+    }
+    .card.red { color: #cc0000; }
+    .card.blk { color: #1a1a1a; }
+    .card-corner { display: flex; flex-direction: column; line-height: 1.1; }
+    .card-corner.flip { transform: rotate(180deg); align-self: flex-end; }
+    .c-rank    { font-size: 15px; font-weight: 900; }
+    .c-suit-sm { font-size: 12px; line-height: 1; }
+    .c-suit-ctr {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 38px; line-height: 1;
+    }
+    .card-back {
+      width: 64px; height: 92px; border-radius: 7px;
+      background: linear-gradient(135deg, #1565c0, #0d47a1);
+      box-shadow: 0 5px 14px rgba(0,0,0,0.55);
+      border: 4px solid rgba(255,255,255,0.12);
+      flex-shrink: 0;
+    }
+
+    /* ── Separator ── */
+    .sep {
+      width: 100%; height: 1px;
+      background: linear-gradient(to right, transparent, rgba(255,255,255,0.22), transparent);
+      margin: 7px 0;
+    }
+
+    /* ── Hand badge ── */
+    .hand-badge {
+      background: rgba(0,0,0,0.28); border-radius: 10px;
+      padding: 7px 12px; text-align: center; margin-bottom: 8px;
+    }
+    .hand-badge .htype  { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.6; }
+    .hand-badge .hvalue { font-size: 24px; font-weight: 900; color: #ffd700; line-height: 1.15; }
+
+    /* ── Result box ── */
+    .result { border-radius: 12px; padding: 10px 13px; margin-bottom: 8px; display: none; }
+    .result.show { display: block; }
+    .result.ok  { background: rgba(46,125,50,0.45);  border: 1.5px solid #66bb6a; }
+    .result.bad { background: rgba(183,28,28,0.45); border: 1.5px solid #ef5350; }
+
+    .r-header  { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+    .r-icon    { font-size: 18px; font-weight: 900; }
+    .r-verdict { font-size: 15px; font-weight: 800; }
+    .r-correct { font-size: 13px; font-weight: 700; margin: 2px 0; color: #ffcc80; }
+    .r-explain { font-size: 12px; opacity: 0.9; line-height: 1.5; }
+    .r-stats   {
+      font-size: 11px; opacity: 0.8; margin-top: 6px;
+      border-top: 1px solid rgba(255,255,255,0.15); padding-top: 5px;
+      line-height: 1.6;
+    }
+    .r-stats .bust-hi { color: #ffd54f; font-weight: 700; }
+    .r-stats .bust-lo { opacity: 0.75; }
+
+    /* ── Action buttons ── */
+    .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 7px; }
+    .btn {
+      padding: 14px 8px; font-size: 14px; font-weight: 900;
+      letter-spacing: 1.5px; text-transform: uppercase;
+      border: none; border-radius: 11px;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+      transition: transform 0.08s;
+    }
+    .btn:active   { transform: scale(0.94); }
+    .btn:disabled { opacity: 0.25; cursor: default; transform: none; }
+    .btn small { display: block; font-size: 9px; font-weight: 600; letter-spacing: 1px; opacity: 0.8; margin-top: 2px; }
+    .btn-hit    { background: linear-gradient(135deg,#43a047,#2e7d32); color:#fff; }
+    .btn-stand  { background: linear-gradient(135deg,#e53935,#b71c1c); color:#fff; }
+    .btn-double { background: linear-gradient(135deg,#fb8c00,#e65100); color:#fff; }
+    .btn-split  { background: linear-gradient(135deg,#8e24aa,#4a148c); color:#fff; }
+
+    .deal-btn {
+      width: 100%; padding: 15px; font-size: 16px; font-weight: 900;
+      letter-spacing: 3px; text-transform: uppercase;
+      background: linear-gradient(135deg, #1976d2, #0d47a1);
+      color: #fff; border: none; border-radius: 11px; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.35); transition: transform 0.08s;
+    }
+    .deal-btn:active { transform: scale(0.97); }
+
+    /* ── Stats / Chart ── */
+    .tab-scroll { overflow-y: auto; }
+    .grid-section { margin-bottom: 14px; }
+    .grid-title {
+      font-size: 11px; font-weight: 800; letter-spacing: 2px;
+      text-transform: uppercase; opacity: 0.7;
+      margin-bottom: 5px; padding-left: 2px;
+    }
+    .overflow-x { overflow-x: auto; border-radius: 8px; }
+    .gtable { border-collapse: collapse; font-size: 11px; }
+    .gtable thead th {
+      background: rgba(0,0,0,0.5); padding: 4px 1px;
+      text-align: center; font-size: 10px; font-weight: 700;
+      color: rgba(255,255,255,0.7); min-width: 29px;
+    }
+    .gtable thead th.lh { min-width: 46px; text-align: left; padding-left: 5px; }
+    .gtable tbody td.lh {
+      background: rgba(0,0,0,0.3); padding: 3px 5px;
+      font-size: 10px; font-weight: 700; white-space: nowrap;
+      min-width: 46px; text-align: left;
+    }
+    .gtable tbody td.gc {
+      min-width: 29px; height: 28px; text-align: center;
+      font-size: 10px; padding: 0 1px; vertical-align: middle;
+    }
+    .gc-pct { font-size: 10px; font-weight: 800; line-height: 1.2; }
+    .gc-cnt { font-size: 8px;  font-weight: 600; opacity: 0.8; line-height: 1; }
+
+    /* Stats accuracy colors */
+    .gc-none { background: #263238; color: rgba(255,255,255,0.3); }
+    .gc-low  { background: #b71c1c; color: #ffcdd2; }
+    .gc-mid  { background: #e65100; color: #ffe0b2; }
+    .gc-high { background: #33691e; color: #dcedc8; }
+    .gc-top  { background: #1b5e20; color: #a5d6a7; }
+
+    /* Strategy chart action colors */
+    .gc-H  { background: #2e7d32; color: #fff; }
+    .gc-S  { background: #b71c1c; color: #fff; }
+    .gc-D  { background: #e65100; color: #fff; }
+    .gc-SP { background: #4a148c; color: #fff; }
+
+    /* ── Legend ── */
+    .legend { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; font-size: 10px; }
+    .legend-item { display: flex; align-items: center; gap: 4px; font-weight: 600; }
+    .legend-dot  { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+    /* ── Stats summary ── */
+    .stats-summary {
+      background: rgba(0,0,0,0.3); border-radius: 10px;
+      padding: 8px 12px; margin-bottom: 10px; font-size: 12px;
+      display: flex; flex-wrap: wrap; gap: 8px;
+    }
+    .stats-summary strong { color: #ffd700; }
+
+    .reset-btn {
+      width: 100%; margin: 8px 0 16px;
+      padding: 13px; font-size: 13px; font-weight: 800;
+      letter-spacing: 1px; text-transform: uppercase;
+      background: rgba(183,28,28,0.25); border: 1.5px solid rgba(239,83,80,0.5);
+      color: #ef9a9a; border-radius: 11px;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+      transition: background 0.15s;
+    }
+    .reset-btn:active { background: rgba(183,28,28,0.5); }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Blackjack Trainer</h1>
+</header>
+
+<div class="score-bar">
+  <span>&#10003; <span id="sRight">0</span>/<span id="sTotal">0</span></span>
+  <span>Streak: <span class="streak" id="sStreak">0</span></span>
+  <span class="pct" id="sPct"></span>
+</div>
+
+<nav class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('practice')">Practice</button>
+  <button class="tab-btn"        onclick="switchTab('stats')">My Stats</button>
+  <button class="tab-btn"        onclick="switchTab('chart')">Strategy</button>
+</nav>
+
+<!-- ═══════════════ PRACTICE TAB ═══════════════ -->
+<div id="tab-practice" class="tab-pane active">
+
+  <div class="mode-row">
+    <button class="mode-btn active" onclick="setMode('all',this)">All Hands</button>
+    <button class="mode-btn"        onclick="setMode('pairs',this)">Pairs</button>
+    <button class="mode-btn"        onclick="setMode('soft',this)">Soft</button>
+    <button class="mode-btn"        onclick="setMode('weakest',this)">My Weak</button>
+  </div>
+
+  <div class="reinforce-msg hidden" id="reinforceMsg"></div>
+
+  <div class="zone-label">Dealer Shows</div>
+  <div class="cards-row" id="dealerRow"><div class="card-back"></div></div>
+
+  <div class="sep"></div>
+
+  <div class="zone-label">Your Hand</div>
+  <div class="cards-row" id="playerRow">
+    <div class="card-back"></div>
+    <div class="card-back"></div>
+  </div>
+
+  <div class="hand-badge" id="handBadge">
+    <div class="htype">Ready</div>
+    <div class="hvalue">—</div>
+  </div>
+
+  <div class="result" id="resultBox">
+    <div class="r-header">
+      <span class="r-icon" id="rIcon"></span>
+      <span class="r-verdict" id="rVerdict"></span>
+    </div>
+    <div class="r-correct" id="rCorrect"></div>
+    <div class="r-explain" id="rExplain"></div>
+    <div class="r-stats"   id="rStats"></div>
+  </div>
+
+  <div class="action-grid" id="actionGrid">
+    <button class="btn btn-hit"    onclick="pick('H')">Hit<small>take a card</small></button>
+    <button class="btn btn-stand"  onclick="pick('S')">Stand<small>keep your hand</small></button>
+    <button class="btn btn-double" onclick="pick('D')">Double<small>2x bet &amp; one card</small></button>
+    <button class="btn btn-split"  onclick="pick('SP')" id="btnSplit">Split<small>split the pair</small></button>
+  </div>
+
+  <button class="deal-btn" id="dealBtn" onclick="newHand()">Deal</button>
+
+</div>
+
+<!-- ═══════════════ STATS TAB ═══════════════ -->
+<div id="tab-stats" class="tab-pane tab-scroll">
+  <div id="statsContent"></div>
+  <button class="reset-btn" onclick="resetStats()">Reset All Stats</button>
+</div>
+
+<!-- ═══════════════ CHART TAB ═══════════════ -->
+<div id="tab-chart" class="tab-pane tab-scroll">
+  <div id="chartContent"></div>
+</div>
+
+<script>
+'use strict';
+
+// ── Constants ─────────────────────────────────────────────────────
+
+const SUITS = ['♠','♥','♦','♣'];
+const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+
+// Dealer bust probability % (multi-deck, dealer stands soft 17)
+const BUST_PCT = {
+  '2':35, '3':38, '4':40, '5':43, '6':42,
+  '7':26, '8':24, '9':23, 'T':21, 'A':12
+};
+
+const HARD = {
+   8: 'H H H H H H H H H H',
+   9: 'H D D D D H H H H H',
+  10: 'D D D D D D D D H H',
+  11: 'D D D D D D D D D H',
+  12: 'H H S S S H H H H H',
+  13: 'S S S S S H H H H H',
+  14: 'S S S S S H H H H H',
+  15: 'S S S S S H H H H H',
+  16: 'S S S S S H H H H H',
+  17: 'S S S S S S S S S S',
+};
+
+const SOFT = {
+  13: 'H H H D D H H H H H',
+  14: 'H H H D D H H H H H',
+  15: 'H H D D D H H H H H',
+  16: 'H H D D D H H H H H',
+  17: 'H D D D D H H H H H',
+  18: 'D D D D D S S H H H',
+  19: 'S S S S S S S S S S',
+  20: 'S S S S S S S S S S',
+};
+
+const PAIRS = {
+  'A': 'SP SP SP SP SP SP SP SP SP SP',
+  '2': 'SP SP SP SP SP SP H  H  H  H',
+  '3': 'SP SP SP SP SP SP H  H  H  H',
+  '4': 'H  H  H  SP SP H  H  H  H  H',
+  '5': 'D  D  D  D  D  D  D  D  H  H',
+  '6': 'SP SP SP SP SP H  H  H  H  H',
+  '7': 'SP SP SP SP SP SP H  H  H  H',
+  '8': 'SP SP SP SP SP SP SP SP SP SP',
+  '9': 'SP SP SP SP SP S  SP SP S  S',
+  'T': 'S  S  S  S  S  S  S  S  S  S',
+};
+
+const HARD_ROWS = [8,9,10,11,12,13,14,15,16,17].map(v => ({type:'hard',value:v,label:`H ${v}`}));
+const SOFT_ROWS = [13,14,15,16,17,18,19,20].map((v,i) => ({type:'soft',value:v,label:`A,${i+2}`}));
+const PAIR_ROWS = [
+  {type:'pair',value:'2',label:'2,2'},{type:'pair',value:'3',label:'3,3'},
+  {type:'pair',value:'4',label:'4,4'},{type:'pair',value:'5',label:'5,5'},
+  {type:'pair',value:'6',label:'6,6'},{type:'pair',value:'7',label:'7,7'},
+  {type:'pair',value:'8',label:'8,8'},{type:'pair',value:'9',label:'9,9'},
+  {type:'pair',value:'T',label:'10,10'},{type:'pair',value:'A',label:'A,A'},
+];
+
+const DCOLS  = ['2','3','4','5','6','7','8','9','T','A'];
+const DHEADS = ['2','3','4','5','6','7','8','9','10','A'];
+const ACTION_NAMES = {H:'Hit',S:'Stand',D:'Double Down',SP:'Split'};
+const row = s => s.trim().split(/\s+/);
+
+// ── Card helpers ──────────────────────────────────────────────────
+
+const isRed  = s => s==='♥'||s==='♦';
+const randCard = () => ({rank:RANKS[Math.random()*13|0], suit:SUITS[Math.random()*4|0]});
+
+function cardVal(r) {
+  if (r==='A') return 11;
+  if (r==='10'||r==='J'||r==='Q'||r==='K') return 10;
+  return +r;
+}
+
+function calcHand(cards) {
+  let total=0, aces=0;
+  for (const c of cards) { total+=cardVal(c.rank); if (c.rank==='A') aces++; }
+  while (total>21&&aces>0) { total-=10; aces--; }
+  return {total, soft:aces>0};
+}
+
+const pKey   = r => (r==='10'||r==='J'||r==='Q'||r==='K') ? 'T' : r;
+const isPair = cs => cs.length===2 && pKey(cs[0].rank)===pKey(cs[1].rank);
+
+function dIdx(r) {
+  if (r==='A') return 9;
+  if (r==='10'||r==='J'||r==='Q'||r==='K') return 8;
+  return +r-2;
+}
+
+// Display name for dealer rank (J/Q/K all shown as 10)
+const dealerDisplay = r => (r==='J'||r==='Q'||r==='K') ? '10' : r;
+
+// ── Strategy ──────────────────────────────────────────────────────
+
+function correctPlay(pCards, dCard) {
+  const di = dIdx(dCard.rank);
+  if (isPair(pCards)) return row(PAIRS[pKey(pCards[0].rank)])[di];
+  const {total, soft} = calcHand(pCards);
+  if (total===21) return null;
+  if (soft) return row(SOFT[total]||'S S S S S S S S S S')[di];
+  if (total<=8)  return 'H';
+  if (total>=17) return 'S';
+  return row(HARD[total])[di];
+}
+
+// ── Explanations ──────────────────────────────────────────────────
+
+function explain(pCards, dCard, play) {
+  const di   = dIdx(dCard.rank);
+  const dr   = dealerDisplay(dCard.rank);
+  const {total, soft} = calcHand(pCards);
+  const weak = di>=2&&di<=4; // 4, 5, 6
+
+  if (isPair(pCards)) {
+    const pk = pKey(pCards[0].rank);
+    if (play==='SP') {
+      if (pk==='A') return 'Always split Aces — each Ace can start a strong hand.';
+      if (pk==='8') return 'Always split 8s — hard 16 is the worst hand; two 8s give fresh starts.';
+      if (pk==='9') return `Split 9s vs ${dr} — two 9s beat one 18 here.`;
+      return `Split ${pk}s vs ${dr} — each ${pk} is a strong base for a new hand.`;
+    }
+    if (play==='S') return 'Never split 10-value cards — 20 is nearly unbeatable.';
+    if (play==='D') return `5+5 is really hard 10. Double vs ${dr} — never split fives!`;
+    return `Hit here — splitting is wrong vs ${dr}.`;
+  }
+
+  if (soft) {
+    if (play==='D') return `Double soft ${total} vs ${dr} — can't bust on one more card, and you're favored.`;
+    if (play==='S') {
+      if (total>=19) return `Soft ${total} is already a strong hand — protect it.`;
+      return `Stand on soft ${total} — let the dealer take the risk.`;
+    }
+    return `Hit soft ${total} vs ${dr} — the Ace protects you and you need a better total.`;
+  }
+
+  if (play==='D') return `Hard ${total} vs ${dr} — prime doubling spot. Maximize your bet.`;
+  if (play==='S') {
+    if (weak) return `Dealer shows ${dr} — high bust chance. Stand and collect!`;
+    if (total>=17) return `Hard ${total} — always stand. Bust risk is too high.`;
+    return `Stand on ${total} vs ${dr} — let the dealer take the risk.`;
+  }
+  return `Hit hard ${total} vs ${dr} — you need a stronger hand to compete.`;
+}
+
+// ── Scenario key / label / object ────────────────────────────────
+
+function scenarioKey(pCards, dCard) {
+  const dk = DCOLS[dIdx(dCard.rank)];
+  if (isPair(pCards)) return `pair-${pKey(pCards[0].rank)}-vs-${dk}`;
+  const {total, soft} = calcHand(pCards);
+  return `${soft?'soft':'hard'}-${total}-vs-${dk}`;
+}
+
+function scenarioLabel(pCards, dCard) {
+  const dl = DHEADS[dIdx(dCard.rank)];
+  if (isPair(pCards)) return `${pCards[0].rank},${pCards[1].rank} pair vs ${dl}`;
+  const {total, soft} = calcHand(pCards);
+  return `${soft?'Soft':'Hard'} ${total} vs ${dl}`;
+}
+
+function cardsToScenario(pCards, dCard) {
+  const dk = DCOLS[dIdx(dCard.rank)];
+  if (isPair(pCards)) return {type:'pair', value:pKey(pCards[0].rank), dealer:dk};
+  const {total, soft} = calcHand(pCards);
+  return {type:soft?'soft':'hard', value:total, dealer:dk};
+}
+
+// ── Stats (localStorage) ──────────────────────────────────────────
+
+function loadStats() {
+  try { return JSON.parse(localStorage.getItem('bjStats')||'{}'); } catch(e) { return {}; }
+}
+function saveStats(s) {
+  try { localStorage.setItem('bjStats', JSON.stringify(s)); } catch(e) {}
+}
+function recordPlay(key, right) {
+  const s = loadStats();
+  if (!s[key]) s[key] = {p:0, r:0};
+  s[key].p++; if (right) s[key].r++;
+  saveStats(s);
+  return s[key];
+}
+
+// ── Reinforcement (one review hand within the next 3–5 deals) ─────
+
+let reinforceScenario = null;  // scenario to resurface
+let reinforceIn       = 0;     // deal this many normal hands first
+let isReinforcement   = false; // true while the current hand is a review
+
+function scheduleReinforce(scenario) {
+  // Place the review hand randomly within the next 3–5 hands
+  reinforceScenario = {...scenario};
+  reinforceIn       = 2 + Math.floor(Math.random() * 3); // 2–4 normal hands first → appears at position 3–5
+}
+
+function updateReinforceMsg() {
+  const el = document.getElementById('reinforceMsg');
+  if (isReinforcement) {
+    el.classList.remove('hidden');
+    el.textContent = 'Review — you missed this one recently';
+  } else {
+    el.classList.add('hidden');
+  }
+}
+
+// ── Hand generation ───────────────────────────────────────────────
+
+let currentMode = 'all';
+
+function getAllScenarios() {
+  const list = [];
+  for (const h of HARD_ROWS) for (const d of DCOLS) list.push({type:'hard',value:h.value,dealer:d,key:`hard-${h.value}-vs-${d}`});
+  for (const s of SOFT_ROWS) for (const d of DCOLS) list.push({type:'soft',value:s.value,dealer:d,key:`soft-${s.value}-vs-${d}`});
+  for (const p of PAIR_ROWS) for (const d of DCOLS) list.push({type:'pair',value:p.value,dealer:d,key:`pair-${p.value}-vs-${d}`});
+  return list;
+}
+
+function generatePairCards() {
+  const ranks = ['A','2','3','4','5','6','7','8','9','10'];
+  const r = ranks[Math.random()*ranks.length|0];
+  return [{rank:r,suit:SUITS[Math.random()*4|0]},{rank:r,suit:SUITS[Math.random()*4|0]}];
+}
+
+function generateSoftCards() {
+  const others = ['2','3','4','5','6','7','8','9'];
+  const r2 = others[Math.random()*others.length|0];
+  const cards = [{rank:'A',suit:SUITS[Math.random()*4|0]},{rank:r2,suit:SUITS[Math.random()*4|0]}];
+  return Math.random()<0.5 ? cards : [cards[1],cards[0]];
+}
+
+function generateHardCards(total) {
+  const combos = [];
+  for (let a=2; a<=Math.min(10,total-2); a++) {
+    const b = total-a;
+    if (b<2||b>10||a===b) continue;
+    if (a<b) combos.push([a,b]);
+  }
+  if (!combos.length) return [{rank:'2',suit:SUITS[0]},{rank:String(Math.min(total-2,10)),suit:SUITS[1]}];
+  const [a,b] = combos[Math.random()*combos.length|0];
+  const tens  = ['10','J','Q','K'];
+  const ra    = a===10 ? tens[Math.random()*4|0] : String(a);
+  const rb    = b===10 ? tens[Math.random()*4|0] : String(b);
+  const cards = [{rank:ra,suit:SUITS[Math.random()*4|0]},{rank:rb,suit:SUITS[Math.random()*4|0]}];
+  return Math.random()<0.5 ? cards : [cards[1],cards[0]];
+}
+
+function generateHandForScenario({type, value, dealer}) {
+  const tens = ['10','J','Q','K'];
+  let pCards;
+
+  if (type==='pair') {
+    const r = value==='T' ? tens[Math.random()*4|0] : value;
+    pCards = [{rank:r,suit:SUITS[Math.random()*4|0]},{rank:r,suit:SUITS[Math.random()*4|0]}];
+  } else if (type==='soft') {
+    const r2 = String(value-11);
+    const cards = [{rank:'A',suit:SUITS[Math.random()*4|0]},{rank:r2,suit:SUITS[Math.random()*4|0]}];
+    pCards = Math.random()<0.5 ? cards : [cards[1],cards[0]];
+  } else {
+    pCards = generateHardCards(value);
+  }
+
+  const dRank = dealer==='T' ? tens[Math.random()*4|0] : dealer;
+  return {pCards, dCard:{rank:dRank, suit:SUITS[Math.random()*4|0]}};
+}
+
+function generateHand() {
+  isReinforcement = false;
+
+  // Surface the pending review hand when the countdown hits zero
+  if (reinforceScenario !== null) {
+    if (reinforceIn <= 0) {
+      isReinforcement = true;
+      const scenario = reinforceScenario;
+      reinforceScenario = null;
+      const {pCards, dCard} = generateHandForScenario(scenario);
+      const play = correctPlay(pCards, dCard);
+      if (play !== null) return {pCards, dCard, play};
+      // Rare edge case (blackjack dealt) — fall through to normal hand
+      isReinforcement = false;
+    } else {
+      reinforceIn--;
+    }
+  }
+
+  let pCards, dCard, play;
+
+  if (currentMode==='pairs') {
+    do {
+      pCards = generatePairCards();
+      dCard  = randCard();
+      play   = correctPlay(pCards, dCard);
+    } while (play===null);
+    return {pCards, dCard, play};
+  }
+
+  if (currentMode==='soft') {
+    pCards = generateSoftCards();
+    dCard  = randCard();
+    play   = correctPlay(pCards, dCard);
+    return {pCards, dCard, play};
+  }
+
+  if (currentMode==='weakest') {
+    const stats = loadStats();
+    const all   = getAllScenarios();
+    const weak  = all.filter(s => {
+      const d = stats[s.key];
+      return !d || d.p===0 || (d.r/d.p)<0.75;
+    });
+    const pool     = weak.length ? weak : all;
+    const scenario = pool[Math.random()*pool.length|0];
+    const gen      = generateHandForScenario(scenario);
+    play = correctPlay(gen.pCards, gen.dCard);
+    if (play===null) return generateHand();
+    return {pCards:gen.pCards, dCard:gen.dCard, play};
+  }
+
+  // all
+  do {
+    pCards = [randCard(), randCard()];
+    dCard  = randCard();
+    play   = correctPlay(pCards, dCard);
+  } while (play===null);
+  return {pCards, dCard, play};
+}
+
+// ── Rendering ─────────────────────────────────────────────────────
+
+function renderCard(c) {
+  const cls = isRed(c.suit) ? 'card red' : 'card blk';
+  return `<div class="${cls}">
+    <div class="card-corner"><div class="c-rank">${c.rank}</div><div class="c-suit-sm">${c.suit}</div></div>
+    <div class="c-suit-ctr">${c.suit}</div>
+    <div class="card-corner flip"><div class="c-rank">${c.rank}</div><div class="c-suit-sm">${c.suit}</div></div>
+  </div>`;
+}
+
+function setHandBadge(pCards) {
+  const {total, soft} = calcHand(pCards);
+  const pair = isPair(pCards);
+  let type, value;
+  if (pair) {
+    const r = pCards[0].rank;
+    type  = 'Pair of';
+    value = ({A:'Aces',J:'Jacks',Q:'Queens',K:'Kings'})[r] || (r+'s');
+  } else {
+    type  = soft ? 'Soft' : 'Hard';
+    value = total;
+  }
+  document.getElementById('handBadge').innerHTML =
+    `<div class="htype">${type}</div><div class="hvalue">${value}</div>`;
+}
+
+function updateScore() {
+  const {right,total,streak} = score;
+  document.getElementById('sRight').textContent  = right;
+  document.getElementById('sTotal').textContent  = total;
+  document.getElementById('sStreak').textContent = streak;
+  document.getElementById('sPct').textContent    = total ? Math.round(100*right/total)+'%' : '';
+}
+
+// ── Stats grid ────────────────────────────────────────────────────
+
+function renderStatsGrid() {
+  const stats   = loadStats();
+  const allKeys = Object.keys(stats);
+  const played  = allKeys.reduce((s,k)=>s+(stats[k].p||0), 0);
+  const correct = allKeys.reduce((s,k)=>s+(stats[k].r||0), 0);
+  const pct     = played ? Math.round(100*correct/played) : 0;
+
+  let html = `<div class="stats-summary">
+    <span>All time: <strong>${correct}/${played}</strong></span>
+    <span>Accuracy: <strong>${played?pct+'%':'—'}</strong></span>
+  </div>`;
+
+  html += buildSubGrid('Hard Hands', HARD_ROWS, stats);
+  html += buildSubGrid('Soft Hands', SOFT_ROWS, stats);
+  html += buildSubGrid('Pairs',      PAIR_ROWS, stats);
+
+  html += `<div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#263238"></div>Not played</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#b71c1c"></div>&lt;50%</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#e65100"></div>50–74%</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#33691e"></div>75–89%</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#1b5e20"></div>90%+</div>
+  </div>
+  <p style="font-size:10px;opacity:0.5;margin-bottom:8px">Cell shows accuracy % and times seen (N×)</p>`;
+
+  document.getElementById('statsContent').innerHTML = html;
+}
+
+function buildSubGrid(title, handRows, stats) {
+  let t = `<div class="grid-section"><div class="grid-title">${title}</div>
+  <div class="overflow-x"><table class="gtable">
+  <thead><tr><th class="lh"></th>`;
+  for (const h of DHEADS) t += `<th>${h}</th>`;
+  t += '</tr></thead><tbody>';
+
+  for (const hr of handRows) {
+    t += `<tr><td class="lh">${hr.label}</td>`;
+    for (const dk of DCOLS) {
+      const key = `${hr.type}-${hr.value}-vs-${dk}`;
+      const d   = stats[key];
+      if (!d||d.p===0) {
+        t += `<td class="gc gc-none"><div class="gc-pct">—</div></td>`;
+      } else {
+        const p   = Math.round(100*d.r/d.p);
+        const cls = p>=90?'gc-top':p>=75?'gc-high':p>=50?'gc-mid':'gc-low';
+        t += `<td class="gc ${cls}"><div class="gc-pct">${p}%</div><div class="gc-cnt">${d.p}×</div></td>`;
+      }
+    }
+    t += '</tr>';
+  }
+  t += '</tbody></table></div></div>';
+  return t;
+}
+
+// ── Strategy chart ────────────────────────────────────────────────
+
+function renderStrategyChart() {
+  let html = `<p style="font-size:11px;opacity:0.6;margin-bottom:10px;letter-spacing:0.5px">
+    Multi-deck basic strategy (dealer stands soft 17)</p>`;
+
+  html += buildChartSection('Hard Hands', HARD_ROWS,
+    (hr,i) => HARD[hr.value] ? row(HARD[hr.value])[i] : (hr.value<=8?'H':'S'));
+  html += buildChartSection('Soft Hands', SOFT_ROWS,
+    (hr,i) => row(SOFT[hr.value]||'S S S S S S S S S S')[i]);
+  html += buildChartSection('Pairs', PAIR_ROWS,
+    (hr,i) => row(PAIRS[hr.value])[i]);
+
+  html += `<div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#2e7d32;width:16px;height:16px;border-radius:3px"></div>Hit</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#b71c1c;width:16px;height:16px;border-radius:3px"></div>Stand</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#e65100;width:16px;height:16px;border-radius:3px"></div>Double</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#4a148c;width:16px;height:16px;border-radius:3px"></div>Split</div>
+  </div>`;
+
+  document.getElementById('chartContent').innerHTML = html;
+}
+
+function buildChartSection(title, handRows, getAction) {
+  let t = `<div class="grid-section"><div class="grid-title">${title}</div>
+  <div class="overflow-x"><table class="gtable">
+  <thead><tr><th class="lh"></th>`;
+  for (const h of DHEADS) t += `<th>${h}</th>`;
+  t += '</tr></thead><tbody>';
+
+  for (const hr of handRows) {
+    t += `<tr><td class="lh">${hr.label}</td>`;
+    for (let i=0; i<DCOLS.length; i++) {
+      const a = getAction(hr, i);
+      t += `<td class="gc gc-${a}">${a==='SP'?'Sp':a}</td>`;
+    }
+    t += '</tr>';
+  }
+  t += '</tbody></table></div></div>';
+  return t;
+}
+
+// ── Game state ────────────────────────────────────────────────────
+
+let pCards, dCard, correct, answered;
+const score = {right:0, total:0, streak:0};
+
+function newHand() {
+  const hand = generateHand();
+  pCards   = hand.pCards;
+  dCard    = hand.dCard;
+  correct  = hand.play;
+  answered = false;
+
+  document.getElementById('dealerRow').innerHTML = renderCard(dCard);
+  document.getElementById('playerRow').innerHTML = pCards.map(renderCard).join('');
+  setHandBadge(pCards);
+
+  document.getElementById('resultBox').className = 'result';
+  document.querySelectorAll('.btn').forEach(b => b.disabled=false);
+  document.getElementById('btnSplit').disabled = !isPair(pCards);
+  document.getElementById('actionGrid').classList.remove('hidden');
+  document.getElementById('dealBtn').classList.add('hidden');
+
+  updateReinforceMsg();
+}
+
+function pick(action) {
+  if (answered) return;
+  answered = true;
+
+  const key  = scenarioKey(pCards, dCard);
+  const ok   = action===correct;
+
+  score.total++;
+  if (ok) { score.right++; score.streak++; } else { score.streak=0; }
+  updateScore();
+
+  const sData = recordPlay(key, ok);
+
+  // Queue reinforcement if wrong
+  if (!ok) scheduleReinforce(cardsToScenario(pCards, dCard));
+
+  document.querySelectorAll('.btn').forEach(b => b.disabled=true);
+
+  // Result box
+  const rb = document.getElementById('resultBox');
+  rb.className = 'result show '+(ok?'ok':'bad');
+
+  document.getElementById('rIcon').textContent    = ok ? '✓' : '✗';
+  document.getElementById('rVerdict').textContent = ok
+    ? ACTION_NAMES[action]+' — Correct!'
+    : 'You chose '+ACTION_NAMES[action];
+  document.getElementById('rCorrect').textContent = ok
+    ? '' : '▶ Correct play: '+ACTION_NAMES[correct];
+  document.getElementById('rExplain').textContent = explain(pCards, dCard, correct);
+
+  // Stats line: scenario history + dealer bust %
+  const scPct    = Math.round(100*sData.r/sData.p);
+  const bustKey  = DCOLS[dIdx(dCard.rank)];
+  const bust     = BUST_PCT[bustKey];
+  const bustHigh = bust >= 38;
+  const bustCls  = bustHigh ? 'bust-hi' : 'bust-lo';
+  const dDisp    = dealerDisplay(dCard.rank);
+
+  document.getElementById('rStats').innerHTML =
+    `${scenarioLabel(pCards,dCard)}: ${sData.r}/${sData.p} correct (${scPct}%)<br>` +
+    `Dealer busts <span class="${bustCls}">${bust}%</span> of the time with a ${dDisp} up`;
+
+  // Swap to next-hand button
+  document.getElementById('actionGrid').classList.add('hidden');
+  const db = document.getElementById('dealBtn');
+  db.textContent = 'Next Hand  →';
+  db.classList.remove('hidden');
+}
+
+// ── UI controls ───────────────────────────────────────────────────
+
+function resetStats() {
+  if (!confirm('Clear all your stats? This cannot be undone.')) return;
+  try { localStorage.removeItem('bjStats'); } catch(e) {}
+  renderStatsGrid();
+}
+
+function setMode(mode, btn) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b  => b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    if (b.textContent.toLowerCase().startsWith(name.slice(0,4).toLowerCase()))
+      b.classList.add('active');
+  });
+  if (name==='stats') renderStatsGrid();
+  if (name==='chart') renderStrategyChart();
+}
+
+// ── Boot ──────────────────────────────────────────────────────────
+
+document.getElementById('actionGrid').classList.add('hidden');
+renderStrategyChart();
+</script>
+</body>
+</html>
